@@ -155,6 +155,29 @@ body {
   align-items: center;
 }
 .chip-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; }
+.lobby-top-row { display: flex; gap: 2rem; flex-wrap: wrap; margin-bottom: 2rem; }
+.lobby-top-row > * { flex: 1; min-width: 220px; }
+.join-section h2 { margin-bottom: 1rem; color: var(--accent); }
+.room-code {
+  background: #2a3a2a;
+  color: #7cfc9f;
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.room-code-badge {
+  background: #2a3a2a;
+  color: #7cfc9f;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.15em;
+}
 .phase-badge {
   background: #2a3a2a;
   color: #7cfc9f;

@@ -46,6 +46,18 @@ function setupSocket(io) {
       emitState(io, tableId);
     });
 
+    socket.on('join_by_code', ({ code }) => {
+      const table = Array.from(tables.values()).find(t => t.code === code?.toUpperCase().trim());
+      if (!table) { socket.emit('error', 'Room not found'); return; }
+      const res = table.addPlayer({ ...user, socketId: socket.id });
+      if (res.error) { socket.emit('error', res.error); return; }
+      const prev = playerTable.get(user.id);
+      if (prev && prev !== table.id) leaveRoom(io, socket, user.id, prev);
+      joinRoom(socket, user.id, table.id);
+      broadcast(io);
+      emitState(io, table.id);
+    });
+
     socket.on('leave_table', () => {
       const tid = playerTable.get(user.id);
       if (tid) leaveRoom(io, socket, user.id, tid);
@@ -123,7 +135,7 @@ function leaveRoom(io, socket, userId, tableId) {
 
 function getTableList() {
   return Array.from(tables.values()).map(t => ({
-    id: t.id, name: t.name,
+    id: t.id, code: t.code, name: t.name,
     playerCount: t.players.length, maxPlayers: t.maxPlayers, phase: t.phase,
   }));
 }

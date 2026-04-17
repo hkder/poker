@@ -5,9 +5,15 @@ const SMALL_BLIND = 10;
 const BIG_BLIND = 20;
 const STARTING_CHIPS = 1000;
 
+function genCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
 class Table {
   constructor(id, name, maxPlayers = 6) {
     this.id = id;
+    this.code = genCode();
     this.name = name;
     this.maxPlayers = maxPlayers;
     this.players = [];
@@ -284,6 +290,7 @@ class Table {
   getState(viewerId) {
     return {
       id: this.id,
+      code: this.code,
       name: this.name,
       phase: this.phase,
       communityCards: this.communityCards,

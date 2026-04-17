@@ -24,7 +24,8 @@ export default function Game({ user }) {
   const sendAction = (action, amount) => socket.emit('player_action', { action, amount });
 
   const copyLink = () => {
-    navigator.clipboard.writeText(window.location.origin + '/lobby');
+    const url = `${window.location.origin}/lobby?code=${tableState.code}`;
+    navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -45,6 +46,7 @@ export default function Game({ user }) {
     <div className="game-page">
       <div className="game-topbar">
         <span className="table-name">{tableState.name}</span>
+        <span className="room-code-badge">{tableState.code}</span>
         <span className="phase-badge">{tableState.phase}</span>
         <div className="topbar-actions">
           <button onClick={copyLink} className="btn-ghost btn-sm">
