@@ -16,6 +16,8 @@ function setupAuth(app) {
     req.session.destroy(() => res.redirect('/'));
   });
 
+  app.get('/api/health', (req, res) => res.json({ ok: true }));
+
   app.get('/api/me', (req, res) => {
     req.session.user ? res.json(req.session.user) : res.status(401).json({ error: 'Not authenticated' });
   });
