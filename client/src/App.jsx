@@ -18,7 +18,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={user ? <Navigate to="/lobby" /> : <Login />} />
+        <Route path="/" element={user ? <Navigate to="/lobby" /> : <Login onLogin={setUser} />} />
         <Route path="/lobby" element={user ? <Lobby user={user} setUser={setUser} /> : <Navigate to="/" />} />
         <Route path="/game" element={user ? <Game user={user} /> : <Navigate to="/" />} />
       </Routes>

@@ -3,7 +3,6 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const session = require('express-session');
-const passport = require('passport');
 const path = require('path');
 const { setupAuth } = require('./auth');
 const { setupSocket } = require('./socketHandlers');
@@ -23,16 +22,15 @@ const sessionMiddleware = session({
 
 app.use(express.json());
 app.use(sessionMiddleware);
-app.use(passport.initialize());
-app.use(passport.session());
 
-setupAuth(app, passport);
+setupAuth(app);
 
 // Share session with socket.io
-const wrap = m => (socket, next) => m(socket.request, {}, next);
-io.use(wrap(sessionMiddleware));
-io.use(wrap(passport.initialize()));
-io.use(wrap(passport.session()));
+io.use((socket, next) => sessionMiddleware(socket.request, {}, next));
+io.use((socket, next) => {
+  socket.request.user = socket.request.session?.user || null;
+  next();
+});
 
 setupSocket(io);
 

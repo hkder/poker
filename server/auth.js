@@ -1,35 +1,23 @@
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const { randomUUID } = require('crypto');
 
-function setupAuth(app, passport) {
-  passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.GOOGLE_CALLBACK_URL || '/auth/google/callback',
-  }, (accessToken, refreshToken, profile, done) => {
-    done(null, {
-      id: profile.id,
-      name: profile.displayName,
-      email: profile.emails[0].value,
-      avatar: profile.photos[0]?.value,
-    });
-  }));
+const ROOM_PASSWORD = process.env.ROOM_PASSWORD || 'angie';
 
-  passport.serializeUser((user, done) => done(null, user));
-  passport.deserializeUser((user, done) => done(null, user));
+function setupAuth(app) {
+  app.post('/auth/login', (req, res) => {
+    const { name, password } = req.body;
+    if (!name?.trim()) return res.status(400).json({ error: 'Name required' });
+    if (password !== ROOM_PASSWORD) return res.status(401).json({ error: 'Wrong password' });
 
-  app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-
-  app.get('/auth/google/callback',
-    passport.authenticate('google', { failureRedirect: '/' }),
-    (req, res) => res.redirect('/')
-  );
+    req.session.user = { id: randomUUID(), name: name.trim(), avatar: null };
+    res.json(req.session.user);
+  });
 
   app.get('/auth/logout', (req, res) => {
-    req.logout(() => res.redirect('/'));
+    req.session.destroy(() => res.redirect('/'));
   });
 
   app.get('/api/me', (req, res) => {
-    req.user ? res.json(req.user) : res.status(401).json({ error: 'Not authenticated' });
+    req.session.user ? res.json(req.session.user) : res.status(401).json({ error: 'Not authenticated' });
   });
 }
 
