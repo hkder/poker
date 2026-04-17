@@ -143,6 +143,18 @@ body {
   border-bottom: 1px solid #2a2d3a;
 }
 .table-name { font-weight: 600; flex: 1; }
+.topbar-actions { display: flex; gap: 0.5rem; align-items: center; }
+.btn-sm { padding: 0.3rem 0.7rem; font-size: 0.8rem; }
+.chip-editor {
+  background: var(--surface);
+  border-bottom: 1px solid #2a2d3a;
+  padding: 0.8rem 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: center;
+}
+.chip-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; }
 .phase-badge {
   background: #2a3a2a;
   color: #7cfc9f;

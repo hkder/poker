@@ -15,6 +15,10 @@ function setupSocket(io) {
     socket.emit('tables_list', getTableList());
 
     socket.on('create_table', ({ name } = {}) => {
+      // Leave any existing table first
+      const prev = playerTable.get(user.id);
+      if (prev) leaveRoom(io, socket, user.id, prev);
+
       const id = `t_${Date.now()}`;
       const table = new Table(id, name || `${user.name}'s Table`);
       tables.set(id, table);
@@ -59,6 +63,18 @@ function setupSocket(io) {
       if (table.players[0]?.id !== user.id) { socket.emit('error', 'Only the host can start'); return; }
       if (!table.startGame()) { socket.emit('error', 'Need at least 2 players'); return; }
       emitState(io, tid);
+    });
+
+    socket.on('admin_adjust_chips', ({ playerId, amount }) => {
+      const tid = playerTable.get(user.id);
+      const table = tables.get(tid);
+      if (!table || table.phase !== 'waiting') return;
+      if (table.players[0]?.id !== user.id) return; // host only
+      const target = table.players.find(p => p.id === playerId);
+      if (target) {
+        target.chips = Math.max(0, target.chips + amount);
+        emitState(io, tid);
+      }
     });
 
     socket.on('player_action', ({ action, amount }) => {

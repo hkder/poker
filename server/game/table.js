@@ -46,6 +46,9 @@ class Table {
   startGame() {
     if (this.players.length < 2 || this.phase !== 'waiting') return false;
 
+    // Reload chips for broke players
+    this.players.forEach(p => { if (p.chips === 0) p.chips = STARTING_CHIPS; });
+
     this.deck = shuffle(createDeck());
     this.communityCards = [];
     this.pot = 0;
@@ -64,8 +67,13 @@ class Table {
       this.players.forEach(p => p.holeCards.push(this.deck.pop()));
     }
 
-    const sbIdx = (this.dealerIndex + 1) % this.players.length;
-    const bbIdx = (this.dealerIndex + 2) % this.players.length;
+    const n = this.players.length;
+
+    // Heads-up: dealer posts SB, other player posts BB
+    // 3+ players: seat after dealer posts SB, next posts BB
+    const sbIdx = (this.dealerIndex + 1) % n;
+    const bbIdx = (this.dealerIndex + 2) % n;
+
     this._postBlind(sbIdx, SMALL_BLIND, 'small blind');
     this._postBlind(bbIdx, BIG_BLIND, 'big blind');
 
@@ -73,8 +81,8 @@ class Table {
     this.minRaise = BIG_BLIND;
     this.phase = 'pre-flop';
 
-    // UTG acts first pre-flop; BB acts last (gets option)
-    const utgIdx = (bbIdx + 1) % this.players.length;
+    // UTG acts first; BB acts last (gets option)
+    const utgIdx = (bbIdx + 1) % n;
     this.toActQueue = this._buildQueue(utgIdx, bbIdx);
     this.currentPlayerIndex = this.toActQueue[0];
     return true;
@@ -90,22 +98,20 @@ class Table {
     this.log.push(`${p.name} posts ${label} ($${actual})`);
   }
 
+  // Build ordered queue from startIdx through endIdx (inclusive), wrapping around
   _buildQueue(startIdx, endIdx) {
     const queue = [];
-    let idx = startIdx;
     const n = this.players.length;
-    let safety = 0;
-    do {
+    for (let i = 0; i < n; i++) {
+      const idx = (startIdx + i) % n;
       const p = this.players[idx];
       if (!p.folded && !p.allIn) queue.push(idx);
       if (idx === endIdx) break;
-      idx = (idx + 1) % n;
-      safety++;
-    } while (safety < n + 1);
+    }
     return queue;
   }
 
-  _activePlayers() {
+  _nonFolded() {
     return this.players.filter(p => !p.folded);
   }
 
@@ -117,6 +123,7 @@ class Table {
     if (!player || player.id !== playerId) return { error: 'Not your turn' };
 
     const toCall = this.currentBet - player.bet;
+    let didRequeue = false;
 
     switch (action) {
       case 'fold':
@@ -154,23 +161,27 @@ class Table {
         if (player.chips === 0) player.allIn = true;
         this.log.push(`${player.name} raises to $${newBet}`);
         this._requeueAfterAggression(idx);
+        didRequeue = true;
         break;
       }
 
       case 'all-in': {
         const chips = player.chips;
+        const prevBet = player.bet;
         player.bet += chips;
         this.pot += chips;
         player.chips = 0;
         player.allIn = true;
         if (player.bet > this.currentBet) {
+          // Aggressive all-in: others need to respond
           this.minRaise = player.bet - this.currentBet;
           this.currentBet = player.bet;
-          this.log.push(`${player.name} goes all-in ($${chips})`);
+          this.log.push(`${player.name} goes all-in for $${player.bet} (raise)`);
           this._requeueAfterAggression(idx);
-          break;
+          didRequeue = true;
+        } else {
+          this.log.push(`${player.name} goes all-in for $${player.bet} (call)`);
         }
-        this.log.push(`${player.name} goes all-in ($${chips})`);
         break;
       }
 
@@ -178,14 +189,14 @@ class Table {
         return { error: 'Unknown action' };
     }
 
-    if (action !== 'raise' && action !== 'all-in') {
+    if (!didRequeue) {
       this.toActQueue.shift();
     }
 
-    const active = this._activePlayers();
-    if (active.length === 1) {
-      active[0].chips += this.pot;
-      this.winners = [{ ...active[0], won: this.pot, handName: 'Last player standing' }];
+    const nonFolded = this._nonFolded();
+    if (nonFolded.length === 1) {
+      nonFolded[0].chips += this.pot;
+      this.winners = [{ ...nonFolded[0], won: this.pot, handName: 'Last player standing' }];
       this.phase = 'showdown';
       return { success: true };
     }
@@ -202,13 +213,10 @@ class Table {
   _requeueAfterAggression(aggressorIdx) {
     const n = this.players.length;
     const queue = [];
-    let idx = (aggressorIdx + 1) % n;
-    let steps = 0;
-    while (steps < n - 1) {
+    for (let i = 1; i < n; i++) {
+      const idx = (aggressorIdx + i) % n;
       const p = this.players[idx];
       if (!p.folded && !p.allIn) queue.push(idx);
-      idx = (idx + 1) % n;
-      steps++;
     }
     this.toActQueue = queue;
   }
@@ -232,13 +240,12 @@ class Table {
       return;
     }
 
-    // Post-flop: first active player after dealer
+    // Post-flop: first active player left of dealer
     const n = this.players.length;
     let startIdx = (this.dealerIndex + 1) % n;
-    let safety = 0;
-    while ((this.players[startIdx].folded || this.players[startIdx].allIn) && safety < n) {
+    for (let i = 0; i < n; i++) {
+      if (!this.players[startIdx].folded && !this.players[startIdx].allIn) break;
       startIdx = (startIdx + 1) % n;
-      safety++;
     }
 
     const queue = [];
@@ -248,6 +255,7 @@ class Table {
     }
     this.toActQueue = queue;
 
+    // If everyone is all-in, skip straight through
     if (this.toActQueue.length === 0) {
       this._advancePhase();
     } else {
@@ -257,16 +265,18 @@ class Table {
 
   _resolveShowdown() {
     this.phase = 'showdown';
-    const active = this._activePlayers();
+    const active = this._nonFolded();
     const winners = determineWinners(active, this.communityCards);
     const share = Math.floor(this.pot / winners.length);
-    winners.forEach(w => {
+    // Remainder chips go to first winner (left of dealer)
+    const remainder = this.pot - share * winners.length;
+    winners.forEach((w, i) => {
       const p = this.players.find(pl => pl.id === w.id);
-      if (p) p.chips += share;
+      if (p) p.chips += share + (i === 0 ? remainder : 0);
     });
-    this.winners = winners.map(w => ({
+    this.winners = winners.map((w, i) => ({
       ...w,
-      won: share,
+      won: share + (i === 0 ? remainder : 0),
       handName: HAND_NAMES[w.best.ev.rank],
     }));
   }

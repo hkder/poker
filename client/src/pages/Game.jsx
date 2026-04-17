@@ -7,6 +7,8 @@ import BettingControls from '../components/BettingControls';
 export default function Game({ user }) {
   const [tableState, setTableState] = useState(null);
   const [error, setError] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const [editingChips, setEditingChips] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -21,11 +23,21 @@ export default function Game({ user }) {
   const startGame = () => socket.emit('start_game');
   const sendAction = (action, amount) => socket.emit('player_action', { action, amount });
 
+  const copyLink = () => {
+    navigator.clipboard.writeText(window.location.origin + '/lobby');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const adjustChips = (playerId, amount) => {
+    socket.emit('admin_adjust_chips', { playerId, amount });
+  };
+
   if (!tableState) return <div className="loading">Connecting…</div>;
 
-  const myPlayer = tableState.players.find(p => p.id === user.id);
-  const currentPlayer = tableState.players[tableState.currentPlayerIndex];
-  const isMyTurn = currentPlayer?.id === user.id && !myPlayer?.folded;
+  const myPlayer = tableState.players.find(p => p.id === user.id) ?? null;
+  const currentPlayer = tableState.players[tableState.currentPlayerIndex] ?? null;
+  const isMyTurn = !!currentPlayer && currentPlayer.id === user.id && !myPlayer?.folded && !myPlayer?.allIn;
   const isHost = tableState.players[0]?.id === user.id;
   const inBetting = !['waiting', 'showdown'].includes(tableState.phase);
 
@@ -34,12 +46,36 @@ export default function Game({ user }) {
       <div className="game-topbar">
         <span className="table-name">{tableState.name}</span>
         <span className="phase-badge">{tableState.phase}</span>
-        <button onClick={leaveTable} className="btn-ghost">Leave</button>
+        <div className="topbar-actions">
+          <button onClick={copyLink} className="btn-ghost btn-sm">
+            {copied ? 'Copied!' : 'Copy Invite Link'}
+          </button>
+          {isHost && tableState.phase === 'waiting' && (
+            <button onClick={() => setEditingChips(e => !e)} className="btn-ghost btn-sm">
+              {editingChips ? 'Done' : 'Edit Chips'}
+            </button>
+          )}
+          <button onClick={leaveTable} className="btn-ghost btn-sm">Leave</button>
+        </div>
       </div>
 
       {error && <div className="error-toast">{error}</div>}
 
       <PokerTable tableState={tableState} userId={user.id} />
+
+      {editingChips && (
+        <div className="chip-editor">
+          <strong>Adjust chips (host only)</strong>
+          {tableState.players.map(p => (
+            <div key={p.id} className="chip-row">
+              <span>{p.name}: ${p.chips}</span>
+              <button onClick={() => adjustChips(p.id, 500)} className="btn-ghost btn-sm">+$500</button>
+              <button onClick={() => adjustChips(p.id, -500)} className="btn-ghost btn-sm">-$500</button>
+              <button onClick={() => adjustChips(p.id, 1000)} className="btn-ghost btn-sm">+$1000</button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="game-footer">
         {tableState.phase === 'waiting' && (
