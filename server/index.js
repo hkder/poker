@@ -9,15 +9,24 @@ const { setupSocket } = require('./socketHandlers');
 
 const app = express();
 const server = http.createServer(app);
+
+// Trust Railway's proxy so secure cookies work over HTTPS
+app.set('trust proxy', 1);
+
 const io = new Server(server, {
   cors: { origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true },
+  transports: ['websocket', 'polling'],
 });
 
 const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
-  resave: false,
+  resave: true,
   saveUninitialized: false,
-  cookie: { secure: process.env.NODE_ENV === 'production', sameSite: 'lax' },
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    maxAge: 1000 * 60 * 60 * 24, // 24 hours
+  },
 });
 
 app.use(express.json());
@@ -26,7 +35,8 @@ app.use(sessionMiddleware);
 setupAuth(app);
 
 // Share session with socket.io
-io.use((socket, next) => sessionMiddleware(socket.request, {}, next));
+const wrap = m => (socket, next) => m(socket.request, socket.request.res || {}, next);
+io.use(wrap(sessionMiddleware));
 io.use((socket, next) => {
   socket.request.user = socket.request.session?.user || null;
   next();

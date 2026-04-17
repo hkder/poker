@@ -9,7 +9,10 @@ function setupAuth(app) {
     if (password !== ROOM_PASSWORD) return res.status(401).json({ error: 'Wrong password' });
 
     req.session.user = { id: randomUUID(), name: name.trim(), avatar: null };
-    res.json(req.session.user);
+    req.session.save(err => {
+      if (err) return res.status(500).json({ error: 'Session error' });
+      res.json(req.session.user);
+    });
   });
 
   app.get('/auth/logout', (req, res) => {
