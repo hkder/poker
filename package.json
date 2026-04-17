@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev:server": "nodemon server/index.js",
-    "build": "cd client && npm run build",
+    "build": "cd client && npm install && npm run build",
     "start": "node server/index.js",
     "install:all": "npm install && cd client && npm install"
   },
