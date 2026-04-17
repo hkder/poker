@@ -13,6 +13,7 @@ export default function Game({ user }) {
     if (!socket.connected) socket.connect();
     socket.on('table_state', setTableState);
     socket.on('error', msg => { setError(msg); setTimeout(() => setError(null), 3000); });
+    socket.emit('request_state');
     return () => { socket.off('table_state'); socket.off('error'); };
   }, []);
 

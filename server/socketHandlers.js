@@ -47,6 +47,11 @@ function setupSocket(io) {
       if (tid) leaveRoom(io, socket, user.id, tid);
     });
 
+    socket.on('request_state', () => {
+      const tid = playerTable.get(user.id);
+      if (tid) emitState(io, tid);
+    });
+
     socket.on('start_game', () => {
       const tid = playerTable.get(user.id);
       const table = tables.get(tid);
